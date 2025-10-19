@@ -1,0 +1,66 @@
+version: 1
+send_anonymous_usage_stats: true
+project_id: "tap-azure-log-analytics"
+default_environment: test
+venv:
+  backend: uv
+environments:
+- name: test
+plugins:
+  extractors:
+  - name: "tap-azure-log-analytics"
+    namespace: "tap_azure_log_analytics"
+    pip_url: -e .
+    capabilities:
+    - state
+    - catalog
+    - discover
+    - about
+    - stream-maps
+    - structured-logging
+
+    settings:
+    - name: workspace_id
+      label: Workspace ID
+      description: Azure Log Analytics Workspace ID
+      kind: string
+
+    - name: start_date
+      kind: date_iso8601
+      label: Start Date
+      description: Initial date to start extracting data from
+
+    - name: endpoint
+      label: Azure Endpoint
+      description: Azure cloud endpoint (e.g., https://api.loganalytics.io for public cloud)
+      kind: string
+
+    - name: queries
+      label: Queries
+      description: Array of query configurations for each stream
+      kind: array
+
+    settings_group_validation:
+    - [workspace_id, queries]
+
+    config:
+      workspace_id: "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+      endpoint: "https://api.loganalytics.io"
+      start_date: '2024-01-01T00:00:00Z'
+      queries:
+        - name: "azure_activity"
+          query: "AzureActivity | project TimeGenerated, OperationName, ResourceGroup, Category"
+          primary_keys: ["TimeGenerated", "OperationName"]
+          replication_key: "TimeGenerated"
+          chunk_size_days: 1
+        - name: "heartbeat"
+          query: "Heartbeat | project TimeGenerated, Computer, OSType, Version"
+          primary_keys: ["TimeGenerated", "Computer"]
+          replication_key: "TimeGenerated"
+          timespan_days: 7
+          chunk_size_days: 1
+
+  loaders:
+  - name: target-jsonl
+    variant: andyh1203
+    pip_url: target-jsonl
