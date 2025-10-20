@@ -53,10 +53,15 @@ class AzureLogAnalyticsAuthenticator:
         if self._authentication_policy is None:
             # Check if we're using the demo workspace for testing
             if self._workspace_id == "DEMO_WORKSPACE":
-                self._authentication_policy = AzureKeyCredentialPolicy(
-                    name="X-Api-Key", 
-                    credential=self.credential
-                )
+                credential = self.credential
+                if isinstance(credential, AzureKeyCredential):
+                    self._authentication_policy = AzureKeyCredentialPolicy(
+                        name="X-Api-Key", 
+                        credential=credential
+                    )
+                else:
+                    # This shouldn't happen in demo mode, but handle gracefully
+                    self._authentication_policy = None
             else:
                 self._authentication_policy = None
         return self._authentication_policy

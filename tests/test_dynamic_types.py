@@ -162,4 +162,4 @@ class TestDynamicTypeHandling:
         
         # Test non-dynamic type (should ignore sample data)
         result = stream._map_column_type("string", [{"key": "value"}])
-        assert result is th.StringType
+        assert isinstance(result, th.StringType)

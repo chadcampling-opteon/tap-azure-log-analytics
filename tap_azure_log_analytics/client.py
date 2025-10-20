@@ -9,6 +9,7 @@ from functools import cached_property
 from importlib import resources
 
 from azure.core.exceptions import HttpResponseError
+from azure.core.credentials import AzureKeyCredential
 from azure.monitor.query import LogsQueryClient, LogsQueryStatus
 from singer_sdk import typing as th
 from singer_sdk.streams import Stream
@@ -49,14 +50,29 @@ class AzureLogAnalyticsStream(Stream):
         if self._client is None:
             workspace_id = self.config.get("workspace_id")
             authenticator = AzureLogAnalyticsAuthenticator(workspace_id=workspace_id)
-            self._client = LogsQueryClient(
-                credential=authenticator.credential,
-                authentication_policy=authenticator.authentication_policy,
-                endpoint=self.config.get("endpoint", "https://api.loganalytics.io")
-            )
+            credential = authenticator.credential
+            
+            # Handle different credential types appropriately
+            if isinstance(credential, AzureKeyCredential):
+                # AzureKeyCredential is not a TokenCredential, so we need to use
+                # a TokenCredential for the LogsQueryClient constructor, but the
+                # actual authentication will be handled by the authentication_policy
+                from azure.identity import DefaultAzureCredential
+                self._client = LogsQueryClient(
+                    credential=DefaultAzureCredential(),
+                    authentication_policy=authenticator.authentication_policy,
+                    endpoint=self.config.get("endpoint", "https://api.loganalytics.io")
+                )
+            else:
+                # DefaultAzureCredential is a TokenCredential, so we can use it directly
+                self._client = LogsQueryClient(
+                    credential=credential,
+                    authentication_policy=authenticator.authentication_policy,
+                    endpoint=self.config.get("endpoint", "https://api.loganalytics.io")
+                )
         return self._client
 
-    def _map_column_type(self, column_type: str, sample_data: list[t.Any] = None) -> th.JSONTypeHelper:
+    def _map_column_type(self, column_type: str, sample_data: list[t.Any] | None = None) -> th.JSONTypeHelper:
         """Map Azure Log Analytics column type to Singer type.
         
         Args:
@@ -67,24 +83,24 @@ class AzureLogAnalyticsStream(Stream):
             Singer type helper.
         """
         type_mapping = {
-            "string": th.StringType,
-            "guid": th.UUIDType,
-            "long": th.IntegerType,
-            "int": th.IntegerType,
-            "real": th.NumberType,
-            "decimal": th.DecimalType,
-            "bool": th.BooleanType,
-            "datetime": th.DateTimeType,
-            "timespan": th.StringType,
+            "string": th.StringType(),
+            "guid": th.UUIDType(),
+            "long": th.IntegerType(),
+            "int": th.IntegerType(),
+            "real": th.NumberType(),
+            "decimal": th.DecimalType(),
+            "bool": th.BooleanType(),
+            "datetime": th.DateTimeType(),
+            "timespan": th.StringType(),
         }
         
         # Handle dynamic types with analysis
         if column_type.lower() == "dynamic":
             return self._analyze_dynamic_type(sample_data)
             
-        return type_mapping.get(column_type.lower(), th.StringType)
+        return type_mapping.get(column_type.lower(), th.StringType())  # type: ignore[return-value]
 
-    def _analyze_dynamic_type(self, sample_data: list[t.Any] = None) -> th.JSONTypeHelper:
+    def _analyze_dynamic_type(self, sample_data: list[t.Any] | None = None) -> th.JSONTypeHelper:
         """Analyze dynamic column data to determine the appropriate Singer type.
         
         Args:
@@ -158,7 +174,7 @@ class AzureLogAnalyticsStream(Stream):
         column_types = table.columns_types
         
         # Collect sample data only for dynamic columns
-        sample_data_by_column = {}
+        sample_data_by_column: dict[str, list[t.Any]] = {}
         if hasattr(table, 'rows') and table.rows:
             # Sample up to 100 rows for analysis
             sample_rows = table.rows[:100]
@@ -171,7 +187,7 @@ class AzureLogAnalyticsStream(Stream):
         
         for name, col_type in zip(column_names, column_types):
             # Get sample data for dynamic columns
-            sample_data = sample_data_by_column.get(name, []) if col_type.lower() == "dynamic" else None
+            sample_data = sample_data_by_column.get(name) if col_type.lower() == "dynamic" else None
             singer_type = self._map_column_type(col_type, sample_data)
             properties.append(
                 th.Property(
@@ -204,8 +220,12 @@ class AzureLogAnalyticsStream(Stream):
             if start_time is not None:
                 # Convert string to datetime if needed
                 if isinstance(start_time, str):
-                    from dateutil.parser import parse
-                    start_time = parse(start_time)
+                    try:
+                        from dateutil.parser import parse  # type: ignore[import-untyped]
+                        start_time = parse(start_time)
+                    except ImportError:
+                        # Fallback to datetime.fromisoformat if dateutil is not available
+                        start_time = datetime.fromisoformat(start_time)
             else:
                 # Fall back to timespan_days if no start_date specified
                 timespan_days = getattr(self, 'query_config', {}).get('timespan_days')
@@ -217,8 +237,12 @@ class AzureLogAnalyticsStream(Stream):
                     start_time = end_time - timedelta(days=1)
             
         # Ensure timezone awareness
-        if start_time.tzinfo is None:
+        if start_time is not None and start_time.tzinfo is None:
             start_time = start_time.replace(tzinfo=timezone.utc)
+        
+        # Ensure we have a valid start_time
+        if start_time is None:
+            start_time = end_time - timedelta(days=1)
         
         return start_time, end_time
 

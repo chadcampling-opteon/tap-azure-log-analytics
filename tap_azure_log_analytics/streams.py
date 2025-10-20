@@ -22,23 +22,13 @@ class LogAnalyticsQueryStream(AzureLogAnalyticsStream):
             query_config: Configuration dictionary containing query details.
         """
         self.query_config = query_config
-        self._schema: dict[str, t.Any] | None = None
-        super().__init__(tap)
+        
+        super().__init__(tap, name=query_config["name"])
+        
+        self.primary_keys = query_config.get("primary_keys", [])
+        self.replication_key = query_config.get("replication_key")
+        
 
-    @property
-    def name(self) -> str:
-        """Return the stream name from config."""
-        return self.query_config["name"]
-
-    @property
-    def primary_keys(self) -> list[str]:
-        """Return the primary keys from config."""
-        return self.query_config.get("primary_keys", [])
-
-    @property
-    def replication_key(self) -> str | None:
-        """Return the replication key from config."""
-        return self.query_config.get("replication_key")
 
     @property
     def schema(self) -> dict[str, t.Any]:
