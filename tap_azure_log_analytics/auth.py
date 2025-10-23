@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import logging
 import sys
-from typing import Any
 
 from azure.core.credentials import AzureKeyCredential
 from azure.core.pipeline.policies import AzureKeyCredentialPolicy
@@ -15,9 +14,9 @@ azure_http_logger = logging.getLogger("azure.core.pipeline.policies.http_logging
 azure_http_logger.setLevel(logging.WARNING)
 
 if sys.version_info >= (3, 12):
-    pass
+    from typing import Any
 else:
-    pass
+    from typing_extensions import Any
 
 
 class AzureLogAnalyticsAuthenticator:

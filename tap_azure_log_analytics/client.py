@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-import sys
 import typing as t
 from datetime import datetime, timedelta, timezone
 from functools import cached_property
@@ -15,11 +14,6 @@ from singer_sdk import typing as th
 from singer_sdk.streams import Stream
 
 from tap_azure_log_analytics.auth import AzureLogAnalyticsAuthenticator
-
-if sys.version_info >= (3, 12):
-    pass
-else:
-    pass
 
 if t.TYPE_CHECKING:
     from singer_sdk.helpers.types import Context
