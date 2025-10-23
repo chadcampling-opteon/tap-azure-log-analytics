@@ -3,11 +3,9 @@
 from __future__ import annotations
 
 import typing as t
-from importlib import resources
 
-from singer_sdk import typing as th  # JSON Schema typing helpers
-from singer_sdk.streams import Stream
 from azure.monitor.query import LogsQueryStatus
+from singer_sdk import typing as th  # JSON Schema typing helpers
 
 from tap_azure_log_analytics.client import AzureLogAnalyticsStream
 
@@ -71,9 +69,8 @@ class LogAnalyticsQueryStream(AzureLogAnalyticsStream):
                     else response.partial_data
                 )
                 return self._generate_schema_from_results(tables)
-            else:
-                self.logger.warning(f"Failed to get schema for {self.name}: {response.status}")
-                return th.PropertiesList().to_dict()
+            self.logger.warning(f"Failed to get schema for {self.name}: {response.status}")
+            return th.PropertiesList().to_dict()
 
         except Exception as e:
             self.logger.warning(f"Error generating schema for {self.name}: {e}")

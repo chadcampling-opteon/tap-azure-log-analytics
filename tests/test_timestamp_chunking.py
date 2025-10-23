@@ -1,6 +1,5 @@
 """Tests for timestamp chunking functionality in Azure Log Analytics tap."""
 
-import pytest
 from datetime import datetime, timedelta, timezone
 from unittest.mock import Mock, patch
 
@@ -11,7 +10,7 @@ from tap_azure_log_analytics.streams import LogAnalyticsQueryStream
 class TestTimestampChunking:
     """Test timestamp chunking functionality."""
 
-    def test_chunk_timespan_basic(self):
+    def test_chunk_timespan_basic(self) -> None:
         """Test basic timespan chunking functionality."""
         mock_tap = Mock()
         mock_tap.config = {}
@@ -38,7 +37,7 @@ class TestTimestampChunking:
             datetime(2024, 1, 6, tzinfo=timezone.utc),
         )
 
-    def test_chunk_timespan_exact_multiple(self):
+    def test_chunk_timespan_exact_multiple(self) -> None:
         """Test chunking when timespan is exact multiple of chunk size."""
         mock_tap = Mock()
         mock_tap.config = {}
@@ -60,7 +59,7 @@ class TestTimestampChunking:
             datetime(2024, 1, 5, tzinfo=timezone.utc),
         )
 
-    def test_chunk_timespan_single_chunk(self):
+    def test_chunk_timespan_single_chunk(self) -> None:
         """Test chunking when timespan fits in single chunk."""
         mock_tap = Mock()
         mock_tap.config = {}
@@ -78,7 +77,7 @@ class TestTimestampChunking:
             datetime(2024, 1, 2, tzinfo=timezone.utc),
         )
 
-    def test_calculate_timespan_with_replication_key(self):
+    def test_calculate_timespan_with_replication_key(self) -> None:
         """Test timespan calculation when replication key is present."""
         # Mock tap and stream
         mock_tap = Mock()
@@ -99,7 +98,7 @@ class TestTimestampChunking:
             assert abs((end_time - expected_end).total_seconds()) < 1  # Within 1 second
             assert end_time.tzinfo is not None  # Should be timezone aware
 
-    def test_calculate_timespan_without_replication_key_uses_start_date(self):
+    def test_calculate_timespan_without_replication_key_uses_start_date(self) -> None:
         """Test timespan calculation without replication key uses start_date from config."""
         mock_tap = Mock()
         mock_tap.config = {"start_date": "2024-01-01T00:00:00Z"}
@@ -115,7 +114,7 @@ class TestTimestampChunking:
         assert abs((end_time - expected_end).total_seconds()) < 1  # Within 1 second
         assert end_time.tzinfo is not None
 
-    def test_calculate_timespan_without_replication_key_no_start_date(self):
+    def test_calculate_timespan_without_replication_key_no_start_date(self) -> None:
         """Test timespan calculation without replication key and no start_date defaults to 1 day ago."""
         mock_tap = Mock()
         mock_tap.config = {}
@@ -133,7 +132,7 @@ class TestTimestampChunking:
         assert abs((end_time - expected_end).total_seconds()) < 1  # Within 1 second
         assert end_time.tzinfo is not None
 
-    def test_calculate_timespan_string_start_date(self):
+    def test_calculate_timespan_string_start_date(self) -> None:
         """Test timespan calculation with string start_date."""
         mock_tap = Mock()
         mock_tap.config = {"start_date": "2024-01-01T00:00:00Z"}
@@ -149,7 +148,7 @@ class TestTimestampChunking:
         assert abs((end_time - expected_end).total_seconds()) < 1  # Within 1 second
         assert end_time.tzinfo is not None
 
-    def test_calculate_timespan_naive_datetime(self):
+    def test_calculate_timespan_naive_datetime(self) -> None:
         """Test timespan calculation with naive datetime gets timezone."""
         mock_tap = Mock()
         mock_tap.config = {"start_date": datetime(2024, 1, 1)}  # Naive datetime
@@ -169,7 +168,7 @@ class TestTimestampChunking:
 class TestLogAnalyticsQueryStreamChunking:
     """Test chunking functionality in LogAnalyticsQueryStream."""
 
-    def test_query_stream_with_timespan_days(self):
+    def test_query_stream_with_timespan_days(self) -> None:
         """Test that query stream properly uses timespan_days when no replication key."""
         mock_tap = Mock()
         mock_tap.config = {"workspace_id": "test-workspace"}
@@ -206,7 +205,7 @@ class TestLogAnalyticsQueryStreamChunking:
                 # The actual test would be in the _calculate_timespan method
                 # but we need to fix that method first
 
-    def test_query_stream_chunk_size_parameter_mismatch(self):
+    def test_query_stream_chunk_size_parameter_mismatch(self) -> None:
         """Test that the chunk_size_days parameter is properly passed to _chunk_timespan."""
         mock_tap = Mock()
         mock_tap.config = {"workspace_id": "test-workspace"}
@@ -244,7 +243,7 @@ class TestLogAnalyticsQueryStreamChunking:
                     # Verify _chunk_timespan was called with chunk_size_days=1
                     mock_chunk.assert_called_once_with(start_time, end_time, 1)
 
-    def test_query_stream_with_replication_key_ignores_timespan_days(self):
+    def test_query_stream_with_replication_key_ignores_timespan_days(self) -> None:
         """Test that when replication key exists, timespan_days is ignored."""
         mock_tap = Mock()
         mock_tap.config = {"workspace_id": "test-workspace"}
@@ -264,7 +263,7 @@ class TestLogAnalyticsQueryStreamChunking:
         with patch.object(
             stream, "get_starting_timestamp", return_value=datetime(2024, 1, 2, tzinfo=timezone.utc)
         ):
-            start_time, end_time = stream._calculate_timespan(None)
+            start_time, _end_time = stream._calculate_timespan(None)
 
             # Should use replication key timestamp, not timespan_days
             assert start_time == datetime(2024, 1, 2, tzinfo=timezone.utc)
@@ -273,7 +272,7 @@ class TestLogAnalyticsQueryStreamChunking:
 class TestTimestampChunkingEdgeCases:
     """Test edge cases for timestamp chunking."""
 
-    def test_chunk_timespan_zero_days(self):
+    def test_chunk_timespan_zero_days(self) -> None:
         """Test chunking with zero days (should not create infinite loop)."""
         mock_tap = Mock()
         mock_tap.config = {}
@@ -287,7 +286,7 @@ class TestTimestampChunkingEdgeCases:
         # Should handle gracefully - might return single chunk or empty list
         assert isinstance(chunks, list)
 
-    def test_chunk_timespan_negative_days(self):
+    def test_chunk_timespan_negative_days(self) -> None:
         """Test chunking with negative days."""
         mock_tap = Mock()
         mock_tap.config = {}
@@ -301,7 +300,7 @@ class TestTimestampChunkingEdgeCases:
         # Should handle gracefully
         assert isinstance(chunks, list)
 
-    def test_chunk_timespan_same_start_end(self):
+    def test_chunk_timespan_same_start_end(self) -> None:
         """Test chunking when start and end times are the same."""
         mock_tap = Mock()
         mock_tap.config = {}
@@ -315,7 +314,7 @@ class TestTimestampChunkingEdgeCases:
         # Should return empty list since start >= end
         assert len(chunks) == 0
 
-    def test_chunk_timespan_start_after_end(self):
+    def test_chunk_timespan_start_after_end(self) -> None:
         """Test chunking when start time is after end time."""
         mock_tap = Mock()
         mock_tap.config = {}
@@ -333,7 +332,7 @@ class TestTimestampChunkingEdgeCases:
 class TestTimespanDaysIntegration:
     """Test integration of timespan_days with chunking logic."""
 
-    def test_start_date_should_override_timespan_days(self):
+    def test_start_date_should_override_timespan_days(self) -> None:
         """Test that start_date takes precedence over timespan_days when no replication key."""
         # This test verifies that start_date has priority over timespan_days for backfilling
 
@@ -354,13 +353,13 @@ class TestTimespanDaysIntegration:
 
         stream = LogAnalyticsQueryStream(mock_tap, query_config)
 
-        start_time, end_time = stream._calculate_timespan(None)
+        start_time, _end_time = stream._calculate_timespan(None)
 
         # Expected: start_time should be the start_date, not calculated from timespan_days
         expected_start = datetime(2024, 1, 1, tzinfo=timezone.utc)
         assert start_time == expected_start
 
-    def test_timespan_days_used_when_no_start_date(self):
+    def test_timespan_days_used_when_no_start_date(self) -> None:
         """Test that timespan_days is used when no start_date is specified."""
         mock_tap = Mock()
         mock_tap.config = {

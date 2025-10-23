@@ -1,14 +1,14 @@
 """Tests for dynamic type handling in Azure Log Analytics."""
 
-import pytest
 from singer_sdk import typing as th
+
 from tap_azure_log_analytics.client import AzureLogAnalyticsStream
 
 
 class MockTap:
     """Mock tap for testing."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         import logging
         import time
 
@@ -23,7 +23,7 @@ class MockTap:
 class MockTable:
     """Mock table for testing."""
 
-    def __init__(self, columns, column_types, rows):
+    def __init__(self, columns, column_types, rows) -> None:
         self.columns = columns
         self.columns_types = column_types
         self.rows = rows
@@ -32,14 +32,14 @@ class MockTable:
 class TestDynamicTypeHandling:
     """Test simplified dynamic type handling - all dynamic types treated as strings."""
 
-    def test_dynamic_type_maps_to_string(self):
+    def test_dynamic_type_maps_to_string(self) -> None:
         """Test that dynamic types are mapped to string type."""
         stream = AzureLogAnalyticsStream(MockTap(), name="test_stream")
 
         result = stream._map_column_type("dynamic")
         assert isinstance(result, th.StringType)
 
-    def test_schema_generation_with_dynamic_types(self):
+    def test_schema_generation_with_dynamic_types(self) -> None:
         """Test schema generation with dynamic columns treated as strings."""
         stream = AzureLogAnalyticsStream(MockTap(), name="test_stream")
 
@@ -70,7 +70,7 @@ class TestDynamicTypeHandling:
         assert "string" in properties["properties"]["type"]
         assert "string" in properties["tags"]["type"]
 
-    def test_map_column_type_basic_types(self):
+    def test_map_column_type_basic_types(self) -> None:
         """Test _map_column_type for various column types."""
         stream = AzureLogAnalyticsStream(MockTap(), name="test_stream")
 

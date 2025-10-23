@@ -6,18 +6,18 @@ import logging
 import sys
 from typing import Any
 
-from azure.identity import DefaultAzureCredential
 from azure.core.credentials import AzureKeyCredential
 from azure.core.pipeline.policies import AzureKeyCredentialPolicy
+from azure.identity import DefaultAzureCredential
 
 # Also configure azure http logging for broader Azure SDK verbosity control
 azure_http_logger = logging.getLogger("azure.core.pipeline.policies.http_logging_policy")
 azure_http_logger.setLevel(logging.WARNING)
 
 if sys.version_info >= (3, 12):
-    from typing import override
+    pass
 else:
-    from typing_extensions import override
+    pass
 
 
 class AzureLogAnalyticsAuthenticator:
@@ -85,10 +85,10 @@ class AzureLogAnalyticsAuthenticator:
             # For AzureKeyCredential, we don't need to get tokens - it's used directly
             # This method shouldn't be called for AzureKeyCredential, but if it is,
             # we'll raise a helpful error
-            raise NotImplementedError(
+            msg = (
                 "AzureKeyCredential doesn't support token-based authentication. "
                 "It should be used directly with the LogsQueryClient."
             )
-        else:
-            # For DefaultAzureCredential, use the normal get_token method
-            return self.credential.get_token(*scopes, **kwargs)
+            raise NotImplementedError(msg)
+        # For DefaultAzureCredential, use the normal get_token method
+        return self.credential.get_token(*scopes, **kwargs)

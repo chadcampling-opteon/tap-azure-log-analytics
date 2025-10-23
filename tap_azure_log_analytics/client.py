@@ -7,10 +7,9 @@ import sys
 import typing as t
 from datetime import datetime, timedelta, timezone
 from functools import cached_property
-from importlib import resources
 
-from azure.core.exceptions import HttpResponseError
 from azure.core.credentials import AzureKeyCredential
+from azure.core.exceptions import HttpResponseError
 from azure.monitor.query import LogsQueryClient, LogsQueryStatus
 from singer_sdk import typing as th
 from singer_sdk.streams import Stream
@@ -18,9 +17,9 @@ from singer_sdk.streams import Stream
 from tap_azure_log_analytics.auth import AzureLogAnalyticsAuthenticator
 
 if sys.version_info >= (3, 12):
-    from typing import override
+    pass
 else:
-    from typing_extensions import override
+    pass
 
 if t.TYPE_CHECKING:
     from singer_sdk.helpers.types import Context
@@ -121,7 +120,7 @@ class AzureLogAnalyticsStream(Stream):
         column_names = table.columns
         column_types = table.columns_types
 
-        for name, col_type in zip(column_names, column_types):
+        for name, col_type in zip(column_names, column_types, strict=False):
             singer_type = self._map_column_type(col_type)
             properties.append(
                 th.Property(
@@ -252,7 +251,7 @@ class AzureLogAnalyticsStream(Stream):
                     for table in response.tables:
                         for row in table.rows:
                             # Convert row to dict using column names
-                            record = dict(zip(table.columns, row))
+                            record = dict(zip(table.columns, row, strict=False))
                             yield record
 
                 elif response.status == LogsQueryStatus.PARTIAL:
@@ -261,9 +260,9 @@ class AzureLogAnalyticsStream(Stream):
                     )
                     for table in response.partial_data:
                         for row in table.rows:
-                            record = dict(zip(table.columns, row))
+                            record = dict(zip(table.columns, row, strict=False))
                             yield record
 
             except HttpResponseError as e:
-                self.logger.error(f"Error querying {self.name}: {e}")
+                self.logger.exception(f"Error querying {self.name}: {e}")
                 raise
