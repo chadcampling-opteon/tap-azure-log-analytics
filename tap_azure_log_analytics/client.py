@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import sys
 import typing as t
 from datetime import datetime, timedelta, timezone
@@ -23,6 +24,10 @@ else:
 
 if t.TYPE_CHECKING:
     from singer_sdk.helpers.types import Context
+    
+# Also configure azure http logging for broader Azure SDK verbosity control
+azure_http_logger = logging.getLogger('azure.core.pipeline.policies.http_logging_policy')
+azure_http_logger.setLevel(logging.WARNING)
 
 
 
@@ -72,12 +77,11 @@ class AzureLogAnalyticsStream(Stream):
                 )
         return self._client
 
-    def _map_column_type(self, column_type: str, sample_data: list[t.Any] | None = None) -> th.JSONTypeHelper:
+    def _map_column_type(self, column_type: str) -> th.JSONTypeHelper:
         """Map Azure Log Analytics column type to Singer type.
         
         Args:
             column_type: The Azure column type.
-            sample_data: Optional sample data to analyze for dynamic types.
             
         Returns:
             Singer type helper.
@@ -92,103 +96,34 @@ class AzureLogAnalyticsStream(Stream):
             "bool": th.BooleanType(),
             "datetime": th.DateTimeType(),
             "timespan": th.StringType(),
+            "dynamic": th.StringType(),  # Treat dynamic types as strings
         }
         
-        # Handle dynamic types with analysis
-        if column_type.lower() == "dynamic":
-            return self._analyze_dynamic_type(sample_data)
-            
         return type_mapping.get(column_type.lower(), th.StringType())  # type: ignore[return-value]
 
-    def _analyze_dynamic_type(self, sample_data: list[t.Any] | None = None) -> th.JSONTypeHelper:
-        """Analyze dynamic column data to determine the appropriate Singer type.
-        
-        Args:
-            sample_data: Sample data from the dynamic column.
-            
-        Returns:
-            Appropriate Singer type helper for the dynamic data.
-        """
-        if not sample_data:
-            # Default to object type if no sample data available
-            return th.ObjectType(additional_properties=True)
-        
-        # Analyze the sample data to determine the structure
-        has_arrays = False
-        has_objects = False
-        has_primitives = False
-        
-        for item in sample_data:
-            if item is None:
-                continue
-                
-            if isinstance(item, list):
-                has_arrays = True
-                # Check if array contains objects or primitives
-                for array_item in item:
-                    if isinstance(array_item, dict):
-                        has_objects = True
-                    elif isinstance(array_item, (str, int, float, bool)):
-                        has_primitives = True
-            elif isinstance(item, dict):
-                has_objects = True
-            elif isinstance(item, (str, int, float, bool)):
-                has_primitives = True
-        
-        # Determine the most appropriate type based on analysis
-        if has_arrays:
-            if has_objects:
-                # Array of objects - use array of objects
-                return th.ArrayType(th.ObjectType(additional_properties=True))
-            elif has_primitives:
-                # Array of primitives - use array of strings (most flexible)
-                return th.ArrayType(th.StringType)
-            else:
-                # Empty arrays or unknown content - default to array of strings
-                return th.ArrayType(th.StringType)
-        elif has_objects:
-            # Single objects
-            return th.ObjectType(additional_properties=True)
-        else:
-            # Primitive values or unknown - default to string
-            return th.StringType()
 
     def _generate_schema_from_results(self, tables: list[t.Any]) -> dict[str, t.Any]:
         """Generate schema from query results.
-        
+
         Args:
             tables: List of tables from query results.
-            
+
         Returns:
             JSON schema for the stream.
         """
         if not tables:
             return th.PropertiesList().to_dict()
-            
+
         # Use the first table to determine schema
         table = tables[0]
         properties = th.PropertiesList()
-        
+
         # Handle Azure Log Analytics table structure with separate columns and column_types
         column_names = table.columns
         column_types = table.columns_types
-        
-        # Collect sample data only for dynamic columns
-        sample_data_by_column: dict[str, list[t.Any]] = {}
-        if hasattr(table, 'rows') and table.rows:
-            # Sample up to 100 rows for analysis
-            sample_rows = table.rows[:100]
-            for row in sample_rows:
-                for i, (name, value) in enumerate(zip(column_names, row)):
-                    if column_types[i].lower() == "dynamic":
-                        if name not in sample_data_by_column:
-                            sample_data_by_column[name] = []
-                        sample_data_by_column[name].append(value)
-        
+
         for name, col_type in zip(column_names, column_types):
-            # Get sample data for dynamic columns
-            sample_data = sample_data_by_column.get(name) if col_type.lower() == "dynamic" else None
-            singer_type = self._map_column_type(col_type, sample_data)
+            singer_type = self._map_column_type(col_type)
             properties.append(
                 th.Property(
                     name,
@@ -247,40 +182,40 @@ class AzureLogAnalyticsStream(Stream):
         return start_time, end_time
 
     def _chunk_timespan(self, start_time: datetime, end_time: datetime, chunk_days: int = 1) -> list[tuple[datetime, datetime]]:
-        """Split timespan into chunks to handle 500k row limit.
-        
+        """Split timespan into chunks to handle 500k row limit and memory constraints.
+
         Args:
             start_time: Start of the timespan.
             end_time: End of the timespan.
             chunk_days: Number of days per chunk.
-            
+
         Returns:
             List of (start, end) tuples for each chunk.
         """
         # Handle edge cases
         if start_time >= end_time:
             return []
-        
+
         if chunk_days <= 0:
             # Invalid chunk size, return single chunk
             return [(start_time, end_time)]
         
         chunks = []
         current_start = start_time
-        
+
         while current_start < end_time:
-            current_end = min(current_start + timedelta(days=chunk_days), end_time)
+            current_end = min(current_start + timedelta(days=chunk_days), end_time)                                                                             
             chunks.append((current_start, current_end))
             current_start = current_end
-            
+
         return chunks
 
-    def get_records(self, context: Context | None) -> t.Iterable[dict[str, t.Any]]:
+    def get_records(self, context: Context | None) -> t.Iterable[dict[str, t.Any]]:                                                                             
         """Get records from Azure Log Analytics.
-        
+
         Args:
             context: The stream context.
-            
+
         Yields:
             Records from the query.
         """
@@ -289,25 +224,25 @@ class AzureLogAnalyticsStream(Stream):
         if not query:
             self.logger.error("No query configured for stream")
             return
-            
+
         # Calculate timespan
         start_time, end_time = self._calculate_timespan(context)
-        
+
         # Get chunk size from config
         chunk_days = getattr(self, 'query_config', {}).get('chunk_size_days', 1)
-        
+
         # Split into chunks if needed
         chunks = self._chunk_timespan(start_time, end_time, chunk_days)
-        
+
         for chunk_start, chunk_end in chunks:
             self.logger.info(f"Querying {self.name} from {chunk_start} to {chunk_end}")
-            
+
             try:
                 # Execute query
                 response = self.client.query_workspace(
                     workspace_id=self.config["workspace_id"],
                     query=query,
-                    timespan=(chunk_start, chunk_end)
+                    timespan=(chunk_start, chunk_end), 
                 )
                 
                 # Handle response

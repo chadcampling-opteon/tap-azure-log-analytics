@@ -2,12 +2,17 @@
 
 from __future__ import annotations
 
+import logging
 import sys
 from typing import Any
 
 from azure.identity import DefaultAzureCredential
 from azure.core.credentials import AzureKeyCredential
 from azure.core.pipeline.policies import AzureKeyCredentialPolicy
+
+# Also configure azure http logging for broader Azure SDK verbosity control
+azure_http_logger = logging.getLogger('azure.core.pipeline.policies.http_logging_policy')
+azure_http_logger.setLevel(logging.WARNING)
 
 if sys.version_info >= (3, 12):
     from typing import override
