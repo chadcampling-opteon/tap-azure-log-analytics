@@ -1,5 +1,7 @@
 """Tests for dynamic type handling in Azure Log Analytics."""
 
+from typing import Any
+
 from singer_sdk import typing as th
 
 from tap_azure_log_analytics.client import AzureLogAnalyticsStream
@@ -15,8 +17,8 @@ class MockTap:
         self.logger = logging.getLogger("mock_tap")
         self.metrics_logger = logging.getLogger("mock_tap.metrics")
         self.name = "mock_tap"
-        self.config = {}
-        self.state = {}
+        self.config: dict[str, Any] = {}
+        self.state: dict[str, Any] = {}
         self.initialized_at = int(time.time() * 1000)
 
 
