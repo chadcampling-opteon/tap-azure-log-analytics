@@ -69,16 +69,16 @@ class TapAzureLogAnalytics(Tap):
         """
         streams_list = []
         queries = self.config.get("queries", [])
-        
+
         for query_config in queries:
             # Validate required fields
             if not all(key in query_config for key in ["name", "query"]):
                 self.logger.warning(f"Skipping query with missing required fields: {query_config}")
                 continue
-                
+
             stream = streams.LogAnalyticsQueryStream(self, query_config)
             streams_list.append(stream)
-            
+
         return streams_list
 
 

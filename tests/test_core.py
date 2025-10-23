@@ -16,9 +16,9 @@ SAMPLE_CONFIG = {
             "primary_keys": ["TimeGenerated", "OperationId"],
             "replication_key": None,
             "timespan_days": 1,
-            "chunk_size_days": 1
+            "chunk_size_days": 1,
         }
-    ]
+    ],
 }
 
 

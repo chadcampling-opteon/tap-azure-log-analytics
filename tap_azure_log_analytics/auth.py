@@ -2,17 +2,21 @@
 
 from __future__ import annotations
 
+import logging
 import sys
-from typing import Any
 
-from azure.identity import DefaultAzureCredential
 from azure.core.credentials import AzureKeyCredential
 from azure.core.pipeline.policies import AzureKeyCredentialPolicy
+from azure.identity import DefaultAzureCredential
+
+# Also configure azure http logging for broader Azure SDK verbosity control
+azure_http_logger = logging.getLogger("azure.core.pipeline.policies.http_logging_policy")
+azure_http_logger.setLevel(logging.WARNING)
 
 if sys.version_info >= (3, 12):
-    from typing import override
+    from typing import Any
 else:
-    from typing_extensions import override
+    from typing_extensions import Any
 
 
 class AzureLogAnalyticsAuthenticator:
@@ -20,7 +24,7 @@ class AzureLogAnalyticsAuthenticator:
 
     def __init__(self, workspace_id: str | None = None) -> None:
         """Initialize the authenticator with appropriate credential based on workspace ID.
-        
+
         Args:
             workspace_id: The Azure Log Analytics workspace ID to determine authentication method.
         """
@@ -31,7 +35,7 @@ class AzureLogAnalyticsAuthenticator:
     @property
     def credential(self) -> DefaultAzureCredential | AzureKeyCredential:
         """Get the Azure credential instance.
-        
+
         Returns:
             DefaultAzureCredential or AzureKeyCredential instance for authentication.
         """
@@ -46,7 +50,7 @@ class AzureLogAnalyticsAuthenticator:
     @property
     def authentication_policy(self) -> AzureKeyCredentialPolicy | None:
         """Get the authentication policy for the credential.
-        
+
         Returns:
             AzureKeyCredentialPolicy for demo workspace, None for production.
         """
@@ -56,8 +60,7 @@ class AzureLogAnalyticsAuthenticator:
                 credential = self.credential
                 if isinstance(credential, AzureKeyCredential):
                     self._authentication_policy = AzureKeyCredentialPolicy(
-                        name="X-Api-Key", 
-                        credential=credential
+                        name="X-Api-Key", credential=credential
                     )
                 else:
                     # This shouldn't happen in demo mode, but handle gracefully
@@ -68,11 +71,11 @@ class AzureLogAnalyticsAuthenticator:
 
     def get_token(self, *scopes: str, **kwargs: Any) -> Any:
         """Get an access token for the specified scopes.
-        
+
         Args:
             *scopes: The scopes to request access for.
             **kwargs: Additional arguments passed to get_token.
-            
+
         Returns:
             Access token for the specified scopes.
         """
@@ -81,10 +84,10 @@ class AzureLogAnalyticsAuthenticator:
             # For AzureKeyCredential, we don't need to get tokens - it's used directly
             # This method shouldn't be called for AzureKeyCredential, but if it is,
             # we'll raise a helpful error
-            raise NotImplementedError(
+            msg = (
                 "AzureKeyCredential doesn't support token-based authentication. "
                 "It should be used directly with the LogsQueryClient."
             )
-        else:
-            # For DefaultAzureCredential, use the normal get_token method
-            return self.credential.get_token(*scopes, **kwargs)
+            raise NotImplementedError(msg)
+        # For DefaultAzureCredential, use the normal get_token method
+        return self.credential.get_token(*scopes, **kwargs)
